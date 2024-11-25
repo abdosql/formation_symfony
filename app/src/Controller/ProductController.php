@@ -3,6 +3,8 @@
 namespace App\Controller;
 
 use App\Entity\Product;
+use App\Entity\Product\DigitalProduct;
+use App\Entity\Product\PhysicalProduct;
 use App\Interface\NotificationInterface;
 use App\Notification\EmailNotification;
 use App\Notification\SMSNotification;
@@ -18,8 +20,6 @@ class ProductController extends AbstractController
 {
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
-        #[TaggedIterator('app.notification')]
-        private readonly iterable $notifications
     )
     {
     }
@@ -27,36 +27,54 @@ class ProductController extends AbstractController
     #[Route('/product/demo', name: 'product_demo')]
     public function demo(): Response
     {
-        // Create a new product (Encapsulation example)
-        $product = new Product();
-        $product->setName('Laptop')
-            ->setPrice(999.99)
-            ->setStock(10);
+        // Create a physical product
+        $physicalProduct = new PhysicalProduct();
+        $physicalProduct->setName('Gaming Laptop')
+            ->setPrice(1499.99)
+            ->setStock(15)
+            ->setWeight(2.5)
+            ->setShippingCost(29.99)
+            ->setDescription('High-end gaming laptop');
 
-        // Save product
-        $this->entityManager->persist($product);
+        // Create a digital product
+        $digitalProduct = new DigitalProduct();
+        $digitalProduct->setName('Antivirus Software')
+            ->setPrice(99.99)
+            ->setStock(150)
+            ->setDownloadLink('https://example.com/download')
+            ->setDownloadLimit(3)
+            ->setDescription('Premium antivirus software');
+
+        // Save products
+        $this->entityManager->persist($physicalProduct);
+        $this->entityManager->persist($digitalProduct);
         $this->entityManager->flush();
 
-        // Use static methods (Static Methods & Properties example)
-        $priceWithTax = ProductHelper::calculatePriceWithTax($product->getPrice());
-        $formattedPrice = ProductHelper::formatPrice($priceWithTax);
-
-        $message = "New product {$product->getName()} added!";
-
-        foreach ($this->notifications as $notification) {
-            $notification->send($message);
-        }
+        // Calculate discounts
+        $physicalDiscount = $physicalProduct->calculateDiscount();
+        $digitalDiscount = $digitalProduct->calculateDiscount();
 
         return $this->json([
-            'product' => [
-                'id' => $product->getId(),
-                'name' => $product->getName(),
-                'price' => $product->getPrice(),
-                'priceWithTax' => $priceWithTax,
-                'formattedPrice' => $formattedPrice,
-                'stock' => $product->getStock(),
-                'createdAt' => $product->getCreatedAt()->format('Y-m-d H:i:s'),
-                'updatedAt' => $product->getUpdatedAt()->format('Y-m-d H:i:s'),
+            'physical_product' => [
+                'id' => $physicalProduct->getId(),
+                'name' => $physicalProduct->getName(),
+                'type' => $physicalProduct->getType(),
+                'price' => $physicalProduct->getPrice(),
+                'discount' => $physicalDiscount,
+                'final_price' => $physicalProduct->getPrice() - $physicalDiscount,
+                'weight' => $physicalProduct->getWeight(),
+                'shipping_cost' => $physicalProduct->getShippingCost(),
+                'created_at' => $physicalProduct->getCreatedAt()->format('Y-m-d H:i:s'),
+            ],
+            'digital_product' => [
+                'id' => $digitalProduct->getId(),
+                'name' => $digitalProduct->getName(),
+                'type' => $digitalProduct->getType(),
+                'price' => $digitalProduct->getPrice(),
+                'discount' => $digitalDiscount,
+                'final_price' => $digitalProduct->getPrice() - $digitalDiscount,
+                'download_limit' => $digitalProduct->getDownloadLimit(),
+                'created_at' => $digitalProduct->getCreatedAt()->format('Y-m-d H:i:s'),
             ]
         ]);
     }
